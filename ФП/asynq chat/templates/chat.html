@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Room - <span id="room-name"></span></title>
+    <style>
+        #chat-container {
+            border: 1px solid #ccc;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: scroll;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chat Room<span id="room-name-placeholder"></span></h1>
+    <p>Welcome!</p>
+
+    <div id="chat-container">
+        <ul id="message-list"></ul>
+    </div>
+
+    <form id="message-form">
+        <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off">
+        <button type="submit">Send</button>
+    </form>
+
+    <form id="whisper-form">
+        <input type="text" id="whisper-input" placeholder="Type username for whisper..." autocomplete="off">
+        <input type="text" id="whisper-message-input" placeholder="Type your whisper message..." autocomplete="off">
+        <button type="submit">Send Whisper</button>
+    </form>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var room = "{{ room }}";
+            var ws = new WebSocket("ws://127.0.0.1:8888");  // Убедитесь, что порт совпадает с портом сервера
+
+            ws.onopen = function () {
+                console.log("WebSocket connection opened.");
+                document.getElementById("room-name").textContent = room;
+            };
+
+            ws.onmessage = function (event) {
+                var messageList = document.getElementById("message-list");
+                var newMessage = document.createElement("li");
+                newMessage.textContent = event.data;
+                messageList.appendChild(newMessage);
+
+                // Прокручиваем контейнер сообщений, чтобы видеть последние сообщения
+                messageList.scrollTop = messageList.scrollHeight;
+
+                // Добавим обработку личных сообщений
+                if (event.data.startsWith("Лично от")) {
+                    // В случае личного сообщения, добавим его в отдельный список
+                    var privateMessageList = document.getElementById("private-message-list");
+                    var newPrivateMessage = document.createElement("li");
+                    newPrivateMessage.textContent = event.data;
+                    privateMessageList.appendChild(newPrivateMessage);
+
+                    // Прокручиваем контейнер личных сообщений
+                    privateMessageList.scrollTop = privateMessageList.scrollHeight;
+                }
+            };
+
+            ws.onclose = function (event) {
+                if (event.wasClean) {
+                    console.log(`Connection closed cleanly, code=${event.code}, reason=${event.reason}`);
+                } else {
+                    console.error('Connection abruptly closed'); // или другие обработки ошибок
+                }
+            };
+
+            var messageForm = document.getElementById("message-form");
+            var messageInput = document.getElementById("message-input");
+
+            messageForm.addEventListener("submit", function (event) {
+                event.preventDefault();
+                var message = messageInput.value.trim();
+                if (message !== "") {
+                    ws.send(message);
+                    messageInput.value = "";
+                }
+            });
+
+            var whisperForm = document.getElementById("whisper-form");
+            var whisperInput = document.getElementById("whisper-input");
+            var whisperMessageInput = document.getElementById("whisper-message-input");
+
+            whisperForm.addEventListener("submit", function (event) {
+                event.preventDefault();
+                var targetUsername = whisperInput.value.trim();
+                var whisperMessage = whisperMessageInput.value.trim();
+                if (targetUsername !== "" && whisperMessage !== "") {
+                    ws.send(`/whisper ${targetUsername} ${whisperMessage}`);
+                    whisperInput.value = "";
+                    whisperMessageInput.value = "";
+                }
+            });
+        });
+    </script>
+</body>
+</html>
